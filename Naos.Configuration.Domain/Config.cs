@@ -1,6 +1,6 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="Config.cs" company="Naos">
-//    Copyright (c) Naos 2017. All Rights Reserved.
+// <copyright file="Config.cs" company="Naos Project">
+//    Copyright (c) Naos Project 2019. All rights reserved.
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -76,6 +76,7 @@ namespace Naos.Configuration.Domain
         /// Gets all certificates from locations matching the current precedence within the .config directory.
         /// </summary>
         /// <returns>Certificates from the config directory.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate", Justification = "Don't want active work like this in a property.")]
         public static IEnumerable<X509Certificate2> GetCertificatesFromConfigDirectory()
         {
             return GetFiles()
@@ -146,6 +147,7 @@ namespace Naos.Configuration.Domain
         /// Gets the  files in the active config folders that match the specified precedence.
         /// </summary>
         /// <returns>Files in the active config folder.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate", Justification = "Don't want active work like this in a property.")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Globalization", "CA1308:NormalizeStringsToUppercase", Justification = "Prefer lowercase.")]
         public static IEnumerable<FileInfo> GetFiles()
         {
