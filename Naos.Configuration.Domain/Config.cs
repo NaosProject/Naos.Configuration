@@ -255,6 +255,15 @@ namespace Naos.Configuration.Domain
         }
 
         /// <summary>
+        /// Set one to many precedence in order.
+        /// </summary>
+        /// <param name="precedence">Precedences to use.</param>
+        public static void SetPrecedence(params string[] precedence)
+        {
+            Precedence = precedence;
+        }
+
+        /// <summary>
         ///     Gets or sets the precedence of settings folders.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Keeping array for backwards compatibility for now.")]

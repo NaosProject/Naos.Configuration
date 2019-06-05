@@ -15,7 +15,7 @@ namespace Naos.Configuration.Test
         [Fact]
         public static void File_exists__Gets_deserialized()
         {
-            Config.Precedence = new[] { "Uncommon" };
+            Config.SetPrecedence("Uncommon");
             var config = Config.Get<TestConfigObject>();
             config.Should().NotBeNull();
             config.Property.Should().Be("Something");
