@@ -34,25 +34,21 @@ namespace Naos.Configuration.Test
 
             // Act
             Config.Reset();
-            Config.Precedence = new[] { "Common" };
             var actual = Config.Get(expected.GetType(), jsonConfigurationType);
             var actualJson = serializer.SerializeToString(actual);
 
             Config.Reset();
-            Config.Precedence = new[] { "Common" };
             var actualGeneric = Config.Get<Contains, PropertyJsonConfig>();
             var actualGenericJson = serializer.SerializeToString(actualGeneric);
 
             var exceptionGet = Record.Exception(() =>
             {
                 Config.Reset();
-                Config.Precedence = new[] { "Common" };
                 return Config.Get(expected.GetType());
             });
             var exceptionGetGeneric = Record.Exception(() =>
             {
                 Config.Reset();
-                Config.Precedence = new[] { "Common" };
                 return Config.Get<Contains>();
             });
 

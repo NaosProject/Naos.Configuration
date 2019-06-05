@@ -34,6 +34,11 @@ namespace Naos.Configuration.Domain
         private static Lazy<string[]> precedence;
 
         /// <summary>
+        /// Default shared precedence at the end.
+        /// </summary>
+        public const string CommonPrecedence = "Common";
+
+        /// <summary>
         /// Initializes static members of the <see cref="Config"/> class.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline", Justification = "Keeping static constructor to run Reset logic.")]
@@ -56,7 +61,7 @@ namespace Naos.Configuration.Domain
                 values = configuredPrecedence.Split(new[] { "|" }, StringSplitOptions.RemoveEmptyEntries);
             }
 
-            return values;
+            return values.Contains(CommonPrecedence) ? values : values.Concat(new[] { CommonPrecedence }).ToArray();
         }
 
         /// <summary>

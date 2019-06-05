@@ -100,10 +100,10 @@
   <ItemGroup>
     <AdditionalFiles Include=".analyzers\stylecop.json" />
     <None Include=".analyzers\test.ruleset" />
-    <None Include=".config\Common\Contains.json">
+    <None Include=".config\Uncommon\TestConfigObject.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include=".config\Common\TestConfigObject.json">
+    <None Include=".config\Common\Contains.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
