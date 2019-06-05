@@ -22,11 +22,11 @@ namespace Naos.Configuration.Test
         }
 
         [Fact]
-        public static void File_does_not_exist__Gets_default()
+        public static void File_does_not_exist__Throws()
         {
-            var config = Config.Get<TestConfigObjectNotThere>();
-            config.Should().Be(default(TestConfigObjectNotThere));
-            config.Should().BeNull();
+            var exception = Record.Exception(() => Config.Get<TestConfigObjectNotThere>());
+            exception.Should().NotBeNull();
+            exception.Message.Should().Be("Could not find config for: Naos.Configuration.Test.TestConfigObjectNotThere.");
         }
     }
 
