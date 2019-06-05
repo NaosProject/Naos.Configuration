@@ -39,6 +39,11 @@ namespace Naos.Configuration.Domain
         public const string CommonPrecedence = "Common";
 
         /// <summary>
+        /// Default name of directory with config files in precedence folders.
+        /// </summary>
+        public const string DefaultConfigDirectoryName = ".config";
+
+        /// <summary>
         /// Initializes static members of the <see cref="Config"/> class.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline", Justification = "Keeping static constructor to run Reset logic.")]
@@ -226,10 +231,10 @@ namespace Naos.Configuration.Domain
         /// </summary>
         /// <param name="rootDirectoryOverride">Optional root directory to look in override; DEFAULT is (AppDomain.CurrentDomain.BaseDirectory).</param>
         /// <param name="configDirectoryNameOverride">Optional config directory override; DEFAULT is ".config".</param>
-        public static void Reset(string rootDirectoryOverride = null, string configDirectoryNameOverride = ".config")
+        public static void Reset(string rootDirectoryOverride = null, string configDirectoryNameOverride = DefaultConfigDirectoryName)
         {
             var baseDirectory = rootDirectoryOverride ?? AppDomain.CurrentDomain.BaseDirectory;
-            var directoryName = configDirectoryNameOverride ?? ".config";
+            var directoryName = configDirectoryNameOverride ?? DefaultConfigDirectoryName;
 
             ResolvedSettings.Clear();
             SettingsDirectory = Path.Combine(baseDirectory, directoryName);
