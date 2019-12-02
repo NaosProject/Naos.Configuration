@@ -10,7 +10,7 @@ namespace Naos.Configuration.Test
     using System.Collections.Generic;
     using FluentAssertions;
     using Naos.Configuration.Domain;
-    using Naos.Serialization.Json;
+    using OBeautifulCode.Serialization.Json;
     using Xunit;
 
     public static class ConfigWithSerializationConfigurationTests
@@ -28,7 +28,7 @@ namespace Naos.Configuration.Test
                 },
             };
 
-            var serializer = new NaosJsonSerializer(typeof(PropertyJsonConfig));
+            var serializer = new ObcJsonSerializer(typeof(PropertyJsonConfig));
             var expectedJson = serializer.SerializeToString(expected);
             var jsonConfigurationType = typeof(PropertyJsonConfig);
 

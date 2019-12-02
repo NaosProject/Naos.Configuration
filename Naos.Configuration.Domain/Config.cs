@@ -16,10 +16,10 @@ namespace Naos.Configuration.Domain
     using System.Security.Cryptography.Pkcs;
     using System.Security.Cryptography.X509Certificates;
     using System.Text;
-    using Naos.Serialization.Domain;
-    using Naos.Serialization.Json;
     using OBeautifulCode.Collection.Recipes;
     using OBeautifulCode.Reflection.Recipes;
+    using OBeautifulCode.Serialization;
+    using OBeautifulCode.Serialization.Json;
 
     /// <summary>
     /// Config retrieval entry harness.
@@ -28,7 +28,7 @@ namespace Naos.Configuration.Domain
     {
         private static readonly ConcurrentDictionary<Type, object> ResolvedSettings;
         private static readonly Lazy<IEnumerable<ISettingsSource>> DefaultSources;
-        private static readonly NaosJsonSerializer DefaultJsonSerializer = new NaosJsonSerializer();
+        private static readonly ObcJsonSerializer DefaultJsonSerializer = new ObcJsonSerializer();
         private static Func<string, SecureString> certificatePassword;
         private static IEnumerable<ISettingsSource> sources;
         private static Lazy<string[]> precedence;
@@ -178,7 +178,7 @@ namespace Naos.Configuration.Domain
         }
 
         /// <summary>
-        /// Implements the default settings deserialization method, which is to deserialize the specified string using <see cref="NaosJsonSerializer" />.
+        /// Implements the default settings deserialization method, which is to deserialize the specified string using <see cref="ObcJsonSerializer" />.
         /// </summary>
         /// <param name="targetType">Target type.</param>
         /// <param name="serialized">Serialized text.</param>
@@ -342,7 +342,7 @@ namespace Naos.Configuration.Domain
                 DeserializeSettings deserializer = Deserialize;
                 if (jsonConfigurationType != null)
                 {
-                    deserializer = (type, serializedString) => new NaosJsonSerializer(jsonConfigurationType, UnregisteredTypeEncounteredStrategy.Attempt).Deserialize(serializedString, type);
+                    deserializer = (type, serializedString) => new ObcJsonSerializer(jsonConfigurationType, UnregisteredTypeEncounteredStrategy.Attempt).Deserialize(serializedString, type);
                 }
 
                 if (!string.IsNullOrWhiteSpace(configSetting))
