@@ -18,6 +18,7 @@ namespace Naos.Configuration.Domain
     using System.Text;
     using OBeautifulCode.Collection.Recipes;
     using OBeautifulCode.Reflection.Recipes;
+    using OBeautifulCode.Security.Recipes;
     using OBeautifulCode.Serialization;
     using OBeautifulCode.Serialization.Json;
 
@@ -537,9 +538,11 @@ namespace Naos.Configuration.Domain
             {
                 if (this.secureSettings.Contains(key))
                 {
-                    var certs = Config.GetCertificatesFromConfigDirectory();
-
-                    return value.Decrypt(certs.ToArray());
+                    var certsFromDirectory = Config.GetCertificatesFromConfigDirectory();
+                    var certsFromStore = CertHelper.GetCertificatesFromStore(StoreLocation.LocalMachine, StoreName.My);
+                    var allCerts = certsFromDirectory.Concat(certsFromStore).ToList();
+                    var decryptedValue = value.DecryptStringFromBase64String(allCerts);
+                    return decryptedValue;
                 }
 
                 return value;
@@ -636,49 +639,5 @@ namespace Naos.Configuration.Domain
 
         /// <inheritdoc />
         public string Name => "environment variable";
-    }
-
-    /// <summary>
-    /// Provides simplified methods for encryption and decryption using <see cref="EnvelopedCms" />.
-    /// </summary>
-    public static class CryptographyExtensions
-    {
-        /// <summary>
-        /// Encrypts the specified string.
-        /// </summary>
-        /// <param name="plaintext">The plaintext to be encrypted.</param>
-        /// <param name="certificate">The certificate to be used for encryption.</param>
-        /// <returns>The encrypted text.</returns>
-        public static string Encrypt(this string plaintext, X509Certificate2 certificate)
-        {
-            var contentInfo = new ContentInfo(Encoding.UTF8.GetBytes(plaintext));
-            var envelopedCms = new EnvelopedCms(contentInfo);
-
-            var cmsRecipient = new CmsRecipient(certificate);
-            envelopedCms.Encrypt(cmsRecipient);
-
-            return Convert.ToBase64String(envelopedCms.Encode());
-        }
-
-        /// <summary>
-        /// Decrypts the specified string.
-        /// </summary>
-        /// <param name="cipherText">The cipher text to be decrypted.</param>
-        /// <param name="certificates">A set of certificates containing the one that was used to encrypt the cipherText.</param>
-        /// <returns>The decrypted text.</returns>
-        public static string Decrypt(this string cipherText, params X509Certificate2[] certificates)
-        {
-            var certCollection = new X509Certificate2Collection(Config.GetCertificatesFromStore().ToArray());
-
-            if (certificates != null && certificates.Length > 0)
-            {
-                certCollection.AddRange(certificates);
-            }
-
-            var envelopedCms = new EnvelopedCms();
-            envelopedCms.Decode(Convert.FromBase64String(cipherText));
-            envelopedCms.Decrypt(certCollection);
-            return Encoding.UTF8.GetString(envelopedCms.ContentInfo.Content);
-        }
     }
 }
