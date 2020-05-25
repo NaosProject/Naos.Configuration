@@ -28,13 +28,13 @@ namespace Naos.Configuration.Test
                 },
             };
 
-            var serializer = new ObcJsonSerializer(typeof(PropertyJsonConfig));
+            var serializer = new ObcJsonSerializer(typeof(PropertyJsonConfig).ToJsonSerializationConfigurationType());
             var expectedJson = serializer.SerializeToString(expected);
             var jsonConfigurationType = typeof(PropertyJsonConfig);
 
             // Act
             Config.Reset();
-            var actual = Config.Get(expected.GetType(), jsonConfigurationType);
+            var actual = Config.Get(expected.GetType(), jsonConfigurationType.ToJsonSerializationConfigurationType());
             var actualJson = serializer.SerializeToString(actual);
 
             Config.Reset();
@@ -83,9 +83,9 @@ namespace Naos.Configuration.Test
         public IBase Property { get; set; }
     }
 
-    public class PropertyJsonConfig : JsonConfigurationBase
+    public class PropertyJsonConfig : JsonSerializationConfigurationBase
     {
-        protected override IReadOnlyCollection<Type> TypesToAutoRegister =>
-            new[] { typeof(IBase), typeof(Contains), typeof(BaseProperty), };
+        protected override IReadOnlyCollection<TypeToRegisterForJson> TypesToRegisterForJson =>
+            new[] { typeof(IBase).ToTypeToRegisterForJson(), typeof(Contains).ToTypeToRegisterForJson(), typeof(BaseProperty).ToTypeToRegisterForJson(), };
     }
 }
