@@ -366,6 +366,35 @@ namespace OBeautifulCode.Type.Recipes
         }
 
         /// <summary>
+        /// Determines if the specified type has a default (public parameterless) constructor.
+        /// </summary>
+        /// <param name="type">Type to check.</param>
+        /// <returns>
+        /// A value indicating whether or not the type has a default (public parameterless) constructor.
+        /// </returns>
+        public static bool HasDefaultConstructor(
+            this Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            if (type.ContainsGenericParameters)
+            {
+                return false;
+            }
+
+            new DateTime();
+
+            var defaultConstructor = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance).SingleOrDefault(_ => _.GetParameters().Length == 0);
+
+            var result = defaultConstructor != null;
+
+            return result;
+        }
+
+        /// <summary>
         /// Determines if <see cref="Comparer{T}.Default"/> will return a
         /// working (non-throwing) comparer for the specified type.
         /// </summary>
@@ -639,6 +668,26 @@ namespace OBeautifulCode.Type.Recipes
         }
 
         /// <summary>
+        /// Determines if the specified type is a closed generic type.
+        /// </summary>
+        /// <param name="type">The type.</param>
+        /// <returns>
+        /// true if the specified type is a closed generic type; otherwise false.
+        /// </returns>
+        public static bool IsClosedGenericType(
+            this Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            var result = type.IsGenericType && (!type.ContainsGenericParameters);
+
+            return result;
+        }
+
+        /// <summary>
         /// Determines if the specified type is a class type, that's not anonymous, and is closed.
         /// </summary>
         /// <remarks>
@@ -856,6 +905,32 @@ namespace OBeautifulCode.Type.Recipes
             var genericTypeDefinition = type.GetGenericTypeDefinition();
 
             var result = SystemUnorderedCollectionGenericTypeDefinitions.Contains(genericTypeDefinition);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Determines if the specified type is in the <see cref="System"/> namespace.
+        /// </summary>
+        /// <remarks>
+        /// An array is considered a system type.
+        /// A ValueTuple is considered a system type.
+        /// A generic type parameter is considered a system type.
+        /// An anonymous type is not considered a system type.
+        /// </remarks>
+        /// <param name="type">The type.</param>
+        /// <returns>
+        /// true if the specified type is in the <see cref="System"/> namespace, otherwise false.
+        /// </returns>
+        public static bool IsSystemType(
+            this Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            var result = type.IsArray || type.IsGenericParameter || (type.Namespace?.StartsWith(nameof(System), StringComparison.Ordinal) ?? false);
 
             return result;
         }
