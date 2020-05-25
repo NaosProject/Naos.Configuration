@@ -193,13 +193,13 @@ namespace Naos.Configuration.Domain
         ///     Gets a settings object of the specified type.
         /// </summary>
         /// <param name="type">Type to fetch.</param>
-        /// <param name="jsonConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
+        /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
         /// <returns>Deserialized configuration.</returns>
-        public static object Get(Type type, JsonSerializationConfigurationType jsonConfigurationType = null)
+        public static object Get(Type type, JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
         {
             return ResolvedSettings.GetOrAdd(type, t =>
             {
-                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(jsonConfigurationType);
+                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(jsonSerializationConfigurationType);
                 return settingsFor.Value;
             });
         }
@@ -207,12 +207,12 @@ namespace Naos.Configuration.Domain
         /// <summary>
         /// Gets a settings object of the specified type.
         /// </summary>
-        /// <param name="jsonConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
+        /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
         /// <typeparam name="T">Type of configuration.</typeparam>
         /// <returns>Deserialized configuration.</returns>
-        public static T Get<T>(JsonSerializationConfigurationType jsonConfigurationType = null)
+        public static T Get<T>(JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
         {
-            return (T)ResolvedSettings.GetOrAdd(typeof(T), t => new For<T>(jsonConfigurationType).Value);
+            return (T)ResolvedSettings.GetOrAdd(typeof(T), t => new For<T>(jsonSerializationConfigurationType).Value);
         }
 
         /// <summary>
@@ -333,17 +333,17 @@ namespace Naos.Configuration.Domain
             /// <summary>
             ///     Initializes a new instance of the <see cref="For{T}" /> class.
             /// </summary>
-            /// <param name="jsonConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
-            public For(JsonSerializationConfigurationType jsonConfigurationType = null)
+            /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
+            public For(JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
             {
                 var configSetting = GetSerializedSetting(Key);
 
                 var targetType = typeof(T);
 
                 DeserializeSettings deserializer = Deserialize;
-                if (jsonConfigurationType != null)
+                if (jsonSerializationConfigurationType != null)
                 {
-                    var attemptingJsonConfigurationType = typeof(AttemptOnUnregisteredTypeJsonSerializationConfiguration<>).MakeGenericType(jsonConfigurationType.ConcreteSerializationConfigurationDerivativeType);
+                    var attemptingJsonConfigurationType = typeof(AttemptOnUnregisteredTypeJsonSerializationConfiguration<>).MakeGenericType(jsonSerializationConfigurationType.ConcreteSerializationConfigurationDerivativeType);
                     deserializer = (type, serializedString) => new ObcJsonSerializer(attemptingJsonConfigurationType.ToJsonSerializationConfigurationType()).Deserialize(serializedString, type);
                 }
 
