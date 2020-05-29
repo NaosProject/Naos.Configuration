@@ -12,15 +12,18 @@ namespace Naos.Configuration.Domain
     using System.Configuration;
     using System.IO;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Security;
     using System.Security.Cryptography.Pkcs;
     using System.Security.Cryptography.X509Certificates;
     using System.Text;
     using OBeautifulCode.Collection.Recipes;
     using OBeautifulCode.Reflection.Recipes;
+    using OBeautifulCode.Representation.System;
     using OBeautifulCode.Security.Recipes;
     using OBeautifulCode.Serialization;
     using OBeautifulCode.Serialization.Json;
+    using OBeautifulCode.Type.Recipes;
 
     /// <summary>
     /// Config retrieval entry harness.
@@ -29,10 +32,12 @@ namespace Naos.Configuration.Domain
     {
         private static readonly ConcurrentDictionary<Type, object> ResolvedSettings;
         private static readonly Lazy<IEnumerable<ISettingsSource>> DefaultSources;
-        private static readonly ObcJsonSerializer DefaultJsonSerializer = new ObcJsonSerializer();
+        private static readonly object SyncUpdateSettings = new object();
         private static Func<string, SecureString> certificatePassword;
         private static IEnumerable<ISettingsSource> sources;
         private static Lazy<string[]> precedence;
+        private static ISerializerFactory serializerFactory;
+        private static SerializerRepresentation serializerRepresentation;
 
         /// <summary>
         /// Default shared precedence at the end.
@@ -80,11 +85,6 @@ namespace Naos.Configuration.Domain
         {
             return new AnonymousSettingsSource(getSetting, name);
         }
-
-        /// <summary>
-        /// Gets or sets configuration settings for deserializing.
-        /// </summary>
-        public static DeserializeSettings Deserialize { get; set; }
 
         /// <summary>
         /// Gets all certificates from locations matching the current precedence within the .config directory.
@@ -179,52 +179,50 @@ namespace Naos.Configuration.Domain
         }
 
         /// <summary>
-        /// Implements the default settings deserialization method, which is to deserialize the specified string using <see cref="ObcJsonSerializer" />.
-        /// </summary>
-        /// <param name="targetType">Target type.</param>
-        /// <param name="serialized">Serialized text.</param>
-        /// <returns>Deserialized default.</returns>
-        public static object DeserializeDefault(Type targetType, string serialized)
-        {
-            return DefaultJsonSerializer.Deserialize(serialized, targetType);
-        }
-
-        /// <summary>
         ///     Gets a settings object of the specified type.
         /// </summary>
         /// <param name="type">Type to fetch.</param>
-        /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
+        /// <param name="configurationSerializerRepresentation">Optional; configuration serializer representation; DEFAULT is JSON.</param>
+        /// <param name="configurationSerializerFactory">Optional; configuration serializer factory; DEFAULT is JSON.</param>
         /// <returns>Deserialized configuration.</returns>
-        public static object Get(Type type, JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
+        public static object Get(Type type, SerializerRepresentation configurationSerializerRepresentation = null, ISerializerFactory configurationSerializerFactory = null)
         {
             return ResolvedSettings.GetOrAdd(type, t =>
             {
-                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(jsonSerializationConfigurationType);
+                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(configurationSerializerRepresentation ?? serializerRepresentation, configurationSerializerFactory ?? serializerFactory);
                 return settingsFor.Value;
             });
         }
 
         /// <summary>
-        /// Gets a settings object of the specified type.
+        /// Gets the specified configuration.
         /// </summary>
-        /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
-        /// <typeparam name="T">Type of configuration.</typeparam>
-        /// <returns>Deserialized configuration.</returns>
-        public static T Get<T>(JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
+        /// <typeparam name="T">Type of configuration item.</typeparam>
+        /// <param name="configurationSerializerRepresentation">Optional; configuration serializer representation; DEFAULT is JSON.</param>
+        /// <param name="configurationSerializerFactory">Optional; configuration serializer factory; DEFAULT is JSON.</param>
+        /// <returns>T.</returns>
+        public static T Get<T>(SerializerRepresentation configurationSerializerRepresentation = null, ISerializerFactory configurationSerializerFactory = null)
         {
-            return (T)ResolvedSettings.GetOrAdd(typeof(T), t => new For<T>(jsonSerializationConfigurationType).Value);
+            return (T)ResolvedSettings.GetOrAdd(
+                typeof(T),
+                t =>
+                    new For<T>(
+                        configurationSerializerRepresentation ?? serializerRepresentation,
+                        configurationSerializerFactory ?? serializerFactory).Value);
         }
 
         /// <summary>
-        /// Gets a settings object of the specified type.
+        /// Sets the serialization logic to be used when reading configuration data (from files or otherwise).
         /// </summary>
-        /// <typeparam name="TConfig">Type of configuration.</typeparam>
-        /// <typeparam name="TJsonConfiguration">Type of JSON configuration.</typeparam>
-        /// <returns>Deserialized configuration.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1004:GenericMethodsShouldProvideTypeParameter", Justification = "Keeping this option.")]
-        public static TConfig Get<TConfig, TJsonConfiguration>()
+        /// <param name="configurationSerializerRepresentation">The serializer representation.</param>
+        /// <param name="configurationSerializerFactory">Optional serializer factory; DEFAULT is JSON.</param>
+        public static void SetSerialization(SerializerRepresentation configurationSerializerRepresentation, ISerializerFactory configurationSerializerFactory = null)
         {
-            return (TConfig)ResolvedSettings.GetOrAdd(typeof(TConfig), t => new For<TConfig>(typeof(TJsonConfiguration).ToJsonSerializationConfigurationType()).Value);
+            lock (SyncUpdateSettings)
+            {
+                Config.serializerRepresentation = configurationSerializerRepresentation;
+                Config.serializerFactory = configurationSerializerFactory ?? new JsonSerializerFactory();
+            }
         }
 
         /// <summary>
@@ -234,15 +232,21 @@ namespace Naos.Configuration.Domain
         /// <param name="configDirectoryNameOverride">Optional config directory override; DEFAULT is ".config".</param>
         public static void Reset(string rootDirectoryOverride = null, string configDirectoryNameOverride = DefaultConfigDirectoryName)
         {
-            var baseDirectory = rootDirectoryOverride ?? AppDomain.CurrentDomain.BaseDirectory;
-            var directoryName = configDirectoryNameOverride ?? DefaultConfigDirectoryName;
+            lock (SyncUpdateSettings)
+            {
+                var baseDirectory = rootDirectoryOverride       ?? AppDomain.CurrentDomain.BaseDirectory;
+                var directoryName = configDirectoryNameOverride ?? DefaultConfigDirectoryName;
 
-            ResolvedSettings.Clear();
-            SettingsDirectory = Path.Combine(baseDirectory, directoryName);
-            Deserialize = DeserializeDefault;
-            GetSerializedSetting = GetSerializedSettingDefault;
-            sources = DefaultSources.Value;
-            precedence = new Lazy<string[]>(DefaultPrecedence);
+                ResolvedSettings.Clear();
+                SettingsDirectory = Path.Combine(baseDirectory, directoryName);
+                GetSerializedSetting = GetSerializedSettingDefault;
+                sources = DefaultSources.Value;
+                precedence = new Lazy<string[]>(DefaultPrecedence);
+                serializerRepresentation = new SerializerRepresentation(
+                    SerializationKind.Json,
+                    typeof(AttemptOnUnregisteredTypeJsonSerializationConfiguration<NullJsonSerializationConfiguration>).ToRepresentation());
+                serializerFactory = new JsonSerializerFactory();
+            }
         }
 
         /// <summary>
@@ -331,29 +335,23 @@ namespace Naos.Configuration.Domain
             private static string key = BuildKey();
 
             /// <summary>
-            ///     Initializes a new instance of the <see cref="For{T}" /> class.
+            /// Initializes a new instance of the <see cref="For{T}"/> class.
             /// </summary>
-            /// <param name="jsonSerializationConfigurationType">Optional <see cref="JsonSerializationConfigurationBase" /> implementation for specific serialization.</param>
-            public For(JsonSerializationConfigurationType jsonSerializationConfigurationType = null)
+            /// <param name="configurationSerializerRepresentation">The configuration serializer representation.</param>
+            /// <param name="configurationSerializerFactory">The configuration serializer factory.</param>
+            public For(SerializerRepresentation configurationSerializerRepresentation, ISerializerFactory configurationSerializerFactory)
             {
                 var configSetting = GetSerializedSetting(Key);
 
-                var targetType = typeof(T);
-
-                DeserializeSettings deserializer = Deserialize;
-                if (jsonSerializationConfigurationType != null)
-                {
-                    var attemptingJsonConfigurationType = typeof(AttemptOnUnregisteredTypeJsonSerializationConfiguration<>).MakeGenericType(jsonSerializationConfigurationType.ConcreteSerializationConfigurationDerivativeType);
-                    deserializer = (type, serializedString) => new ObcJsonSerializer(attemptingJsonConfigurationType.ToJsonSerializationConfigurationType()).Deserialize(serializedString, type);
-                }
+                var serializer = configurationSerializerFactory.BuildSerializer(configurationSerializerRepresentation);
 
                 if (!string.IsNullOrWhiteSpace(configSetting))
                 {
-                    this.Value = (T)deserializer(targetType, configSetting);
+                    this.Value = serializer.Deserialize<T>(configSetting);
                 }
                 else
                 {
-                    throw new FileNotFoundException("Could not find config for: " + targetType.FullName + ".");
+                    throw new FileNotFoundException(FormattableString.Invariant($"Could not find config for: {typeof(T).AssemblyQualifiedName}."));
                 }
             }
 
@@ -574,14 +572,6 @@ namespace Naos.Configuration.Domain
     /// <param name="key">The key.</param>
     /// <returns>A string representing serialized settings.</returns>
     public delegate string GetSerializedSetting(string key);
-
-    /// <summary>
-    /// Deserializes a string into a specified type.
-    /// </summary>
-    /// <param name="targetType">The type to which the settings should be deserialized.</param>
-    /// <param name="serialized">The serialized settings.</param>
-    /// <returns>An instance of <paramref name="targetType" />.</returns>
-    public delegate object DeserializeSettings(Type targetType, string serialized);
 
     /// <summary>
     /// Anonymous implementation of <see cref="ISettingsSource" />.

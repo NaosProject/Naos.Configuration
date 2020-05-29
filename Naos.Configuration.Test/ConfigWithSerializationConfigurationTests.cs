@@ -10,6 +10,8 @@ namespace Naos.Configuration.Test
     using System.Collections.Generic;
     using FluentAssertions;
     using Naos.Configuration.Domain;
+    using OBeautifulCode.Representation.System;
+    using OBeautifulCode.Serialization;
     using OBeautifulCode.Serialization.Json;
     using Xunit;
 
@@ -28,29 +30,38 @@ namespace Naos.Configuration.Test
                 },
             };
 
+            var configurationSerializerRepresentation = new SerializerRepresentation(SerializationKind.Json, typeof(PropertyJsonConfig).ToRepresentation());
             var serializer = new ObcJsonSerializer(typeof(PropertyJsonConfig).ToJsonSerializationConfigurationType());
             var expectedJson = serializer.SerializeToString(expected);
-            var jsonConfigurationType = typeof(PropertyJsonConfig);
 
-            // Act
+            // Act - Method specified serialization.
             Config.Reset();
-            var actual = Config.Get(expected.GetType(), jsonConfigurationType.ToJsonSerializationConfigurationType());
-            var actualJson = serializer.SerializeToString(actual);
+            var actualViaParameterMethodSpecific = Config.Get(expected.GetType(), configurationSerializerRepresentation);
+            var actualJsonViaParameterMethodSpecific = serializer.SerializeToString(actualViaParameterMethodSpecific);
+            var actualViaGenericMethodSpecific = Config.Get(expected.GetType(), configurationSerializerRepresentation);
+            var actualJsonViaGenericMethodSpecific = serializer.SerializeToString(actualViaGenericMethodSpecific);
 
-            Config.Reset();
-            var actualGeneric = Config.Get<Contains, PropertyJsonConfig>();
-            var actualGenericJson = serializer.SerializeToString(actualGeneric);
-
+            // Act - Default via type parameter.
             var exceptionGet = Record.Exception(() =>
             {
                 Config.Reset();
                 return Config.Get(expected.GetType());
             });
+
+            // Act - Default via generic call.
             var exceptionGetGeneric = Record.Exception(() =>
             {
                 Config.Reset();
                 return Config.Get<Contains>();
             });
+
+            // Act - Global specified
+            Config.Reset();
+            Config.SetSerialization(configurationSerializerRepresentation);
+            var actualViaParameterGlobal = Config.Get(expected.GetType());
+            var actualJsonViaParameterGlobal = serializer.SerializeToString(actualViaParameterGlobal);
+            var actualViaGenericGlobal = Config.Get<Contains>();
+            var actualJsonViaGenericGlobal = serializer.SerializeToString(actualViaGenericGlobal);
 
             // Assert
             exceptionGet.Should().NotBeNull();
@@ -58,8 +69,10 @@ namespace Naos.Configuration.Test
             exceptionGet.InnerException.Message.Should().StartWith("Could not create an instance of type Naos.Configuration.Test.IBase. Type is an interface or abstract class and cannot be instantiated.");
             exceptionGetGeneric.Should().NotBeNull();
             exceptionGetGeneric.Message.Should().StartWith("Could not create an instance of type Naos.Configuration.Test.IBase. Type is an interface or abstract class and cannot be instantiated.");
-            actualJson.Should().Be(expectedJson);
-            actualGenericJson.Should().Be(expectedJson);
+            actualJsonViaParameterMethodSpecific.Should().Be(expectedJson);
+            actualJsonViaGenericMethodSpecific.Should().Be(expectedJson);
+            actualJsonViaParameterGlobal.Should().Be(expectedJson);
+            actualJsonViaGenericGlobal.Should().Be(expectedJson);
         }
     }
 

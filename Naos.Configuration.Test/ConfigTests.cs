@@ -26,7 +26,8 @@ namespace Naos.Configuration.Test
         {
             var exception = Record.Exception(() => Config.Get<TestConfigObjectNotThere>());
             exception.Should().NotBeNull();
-            exception.Message.Should().Be("Could not find config for: Naos.Configuration.Test.TestConfigObjectNotThere.");
+            exception.Message.Should()
+                     .StartWith("Could not find config for: Naos.Configuration.Test.TestConfigObjectNotThere, Naos.Configuration.Test,");
         }
     }
 
