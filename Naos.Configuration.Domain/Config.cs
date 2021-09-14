@@ -31,6 +31,7 @@ namespace Naos.Configuration.Domain
     public static class Config
     {
         private static readonly ConcurrentDictionary<Type, object> ResolvedSettings;
+        private static readonly ConcurrentDictionary<string, object> ResolvedByNameSettings;
         private static readonly Lazy<IEnumerable<ISettingsSource>> DefaultSources;
         private static readonly object SyncUpdateSettings = new object();
         private static Func<string, SecureString> certificatePassword;
@@ -56,6 +57,7 @@ namespace Naos.Configuration.Domain
         static Config()
         {
             ResolvedSettings = new ConcurrentDictionary<Type, object>();
+            ResolvedByNameSettings = new ConcurrentDictionary<string, object>();
             DefaultSources = new Lazy<IEnumerable<ISettingsSource>>(GetDefaultSources);
             certificatePassword = certificateName => null;
 
@@ -189,7 +191,7 @@ namespace Naos.Configuration.Domain
         {
             return ResolvedSettings.GetOrAdd(type, t =>
             {
-                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(configurationSerializerRepresentation ?? serializerRepresentation, configurationSerializerFactory ?? serializerFactory);
+                dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(configurationSerializerRepresentation ?? serializerRepresentation, configurationSerializerFactory ?? serializerFactory, null);
                 return settingsFor.Value;
             });
         }
@@ -209,6 +211,49 @@ namespace Naos.Configuration.Domain
                     new For<T>(
                         configurationSerializerRepresentation ?? serializerRepresentation,
                         configurationSerializerFactory ?? serializerFactory).Value);
+        }
+
+        /// <summary>
+        ///     Gets a settings object of the specified type.
+        /// </summary>
+        /// <param name="name">Name of the resource.</param>
+        /// <param name="type">Type to fetch.</param>
+        /// <param name="configurationSerializerRepresentation">Optional; configuration serializer representation; DEFAULT is JSON.</param>
+        /// <param name="configurationSerializerFactory">Optional; configuration serializer factory; DEFAULT is JSON.</param>
+        /// <returns>Deserialized configuration.</returns>
+        public static object GetByName(
+            string name,
+            Type type,
+            SerializerRepresentation configurationSerializerRepresentation = null,
+            ISerializerFactory configurationSerializerFactory = null)
+        {
+            return ResolvedByNameSettings.GetOrAdd(name, t =>
+                                                   {
+                                                       dynamic settingsFor = typeof(For<>).MakeGenericType(type).Construct(configurationSerializerRepresentation ?? serializerRepresentation, configurationSerializerFactory ?? serializerFactory, name);
+                                                       return settingsFor.Value;
+                                                   });
+        }
+
+        /// <summary>
+        /// Gets the specified configuration.
+        /// </summary>
+        /// <typeparam name="T">Type of configuration item.</typeparam>
+        /// <param name="name">Name of the resource.</param>
+        /// <param name="configurationSerializerRepresentation">Optional; configuration serializer representation; DEFAULT is JSON.</param>
+        /// <param name="configurationSerializerFactory">Optional; configuration serializer factory; DEFAULT is JSON.</param>
+        /// <returns>T.</returns>
+        public static T GetByName<T>(
+            string name,
+            SerializerRepresentation configurationSerializerRepresentation = null,
+            ISerializerFactory configurationSerializerFactory = null)
+        {
+            return (T)ResolvedByNameSettings.GetOrAdd(
+                name,
+                t =>
+                    new For<T>(
+                        configurationSerializerRepresentation ?? serializerRepresentation,
+                        configurationSerializerFactory        ?? serializerFactory,
+                        name).Value);
         }
 
         /// <summary>
@@ -238,6 +283,7 @@ namespace Naos.Configuration.Domain
                 var directoryName = configDirectoryNameOverride ?? DefaultConfigDirectoryName;
 
                 ResolvedSettings.Clear();
+                ResolvedByNameSettings.Clear();
                 SettingsDirectory = Path.Combine(baseDirectory, directoryName);
                 GetSerializedSetting = GetSerializedSettingDefault;
                 sources = DefaultSources.Value;
@@ -332,16 +378,18 @@ namespace Naos.Configuration.Domain
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716:IdentifiersShouldNotMatchKeywords", MessageId = "For", Justification = "Remnant of Its.Configuration.")]
         public class For<T>
         {
-            private static string key = BuildKey();
+            private string key;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="For{T}"/> class.
             /// </summary>
             /// <param name="configurationSerializerRepresentation">The configuration serializer representation.</param>
             /// <param name="configurationSerializerFactory">The configuration serializer factory.</param>
-            public For(SerializerRepresentation configurationSerializerRepresentation, ISerializerFactory configurationSerializerFactory)
+            /// <param name="keyOverride">The optional specified key to use; DEFAULT is null and will build a key from the supplied <typeparamref name="T"/>.</param>
+            public For(SerializerRepresentation configurationSerializerRepresentation, ISerializerFactory configurationSerializerFactory, string keyOverride = null)
             {
-                var configSetting = GetSerializedSetting(Key);
+                this.Key = keyOverride ?? BuildKey();
+                var configSetting = GetSerializedSetting(this.Key);
 
                 var serializer = configurationSerializerFactory.BuildSerializer(configurationSerializerRepresentation);
 
@@ -365,9 +413,9 @@ namespace Naos.Configuration.Domain
             /// </summary>
             /// <exception cref="ArgumentException">The key cannot be null, empty, or consist entirely of whitespace.</exception>
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1000:DoNotDeclareStaticMembersOnGenericTypes", Justification = "Remnant of Its.Configuration.")]
-            public static string Key
+            public string Key
             {
-                get => key;
+                get => this.key;
                 set
                 {
                     if (string.IsNullOrWhiteSpace(value))
@@ -375,7 +423,7 @@ namespace Naos.Configuration.Domain
                         throw new ArgumentException("The key cannot be null, empty, or consist entirely of whitespace.");
                     }
 
-                    key = value;
+                    this.key = value;
                 }
             }
 
@@ -437,10 +485,26 @@ namespace Naos.Configuration.Domain
         {
             if (setting == null)
             {
-                throw new ArgumentNullException("setting");
+                throw new ArgumentNullException(nameof(setting));
             }
 
             ResolvedSettings[typeof(TSetting)] = setting;
+        }
+
+        /// <summary>
+        /// Sets the <paramref name="setting"/> object to be returned when <see cref="Get{T}"/> is called for the specified <typeparamref name="TSetting"/>.
+        /// </summary>
+        /// <typeparam name="TSetting">The type of the setting.</typeparam>
+        /// <param name="name">Name of the resource.</param>
+        /// <param name="setting">The setting to return when <see cref="Get{T}"/> is called for the specified <typeparamref name="TSetting"/>.</param>
+        public static void SetByName<TSetting>(string name, TSetting setting)
+        {
+            if (setting == null)
+            {
+                throw new ArgumentNullException(nameof(setting));
+            }
+
+            ResolvedByNameSettings[name] = setting;
         }
     }
 

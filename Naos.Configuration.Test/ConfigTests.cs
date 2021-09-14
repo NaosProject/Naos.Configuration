@@ -8,15 +8,34 @@ namespace Naos.Configuration.Test
 {
     using FluentAssertions;
     using Naos.Configuration.Domain;
+    using OBeautifulCode.Reflection.Recipes;
     using Xunit;
 
     public static class ConfigTests
     {
         [Fact]
-        public static void File_exists__Gets_deserialized()
+        public static void Get___File_exists__Gets_deserialized()
         {
             Config.SetPrecedence("Uncommon");
             var config = Config.Get<TestConfigObject>();
+            config.Should().NotBeNull();
+            config.Property.Should().Be("Something");
+        }
+
+        [Fact]
+        public static void GetByName___File_exists__Gets_deserialized()
+        {
+            Config.SetPrecedence("Named");
+            var config = Config.GetByName("Item", typeof(TestConfigObject));
+            config.Should().NotBeNull();
+            config.GetPropertyValue(nameof(TestConfigObject.Property)).Should().Be("Something");
+        }
+
+        [Fact]
+        public static void GetByName_T___File_exists__Gets_deserialized()
+        {
+            Config.SetPrecedence("Named");
+            var config = Config.GetByName<TestConfigObject>("Item");
             config.Should().NotBeNull();
             config.Property.Should().Be("Something");
         }
