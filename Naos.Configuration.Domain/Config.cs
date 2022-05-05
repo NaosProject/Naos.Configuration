@@ -506,6 +506,20 @@ namespace Naos.Configuration.Domain
 
             ResolvedByNameSettings[name] = setting;
         }
+
+        /// <summary>
+        /// Decrypts the contents.
+        /// </summary>
+        /// <param name="encryptedInput">The encrypted input.</param>
+        /// <returns>System.String.</returns>
+        public static string DecryptContents(string encryptedInput)
+        {
+            var certsFromDirectory = Config.GetCertificatesFromConfigDirectory();
+            var certsFromStore = CertHelper.GetCertificatesFromStore(StoreLocation.LocalMachine, StoreName.My);
+            var allCerts = certsFromDirectory.Concat(certsFromStore).ToList();
+            var decryptedValue = encryptedInput.DecryptStringFromBase64String(allCerts);
+            return decryptedValue;
+        }
     }
 
     /// <summary>
@@ -601,10 +615,7 @@ namespace Naos.Configuration.Domain
             {
                 if (this.secureSettings.Contains(key))
                 {
-                    var certsFromDirectory = Config.GetCertificatesFromConfigDirectory();
-                    var certsFromStore = CertHelper.GetCertificatesFromStore(StoreLocation.LocalMachine, StoreName.My);
-                    var allCerts = certsFromDirectory.Concat(certsFromStore).ToList();
-                    var decryptedValue = value.DecryptStringFromBase64String(allCerts);
+                    var decryptedValue = Config.DecryptContents(value);
                     return decryptedValue;
                 }
 
